@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Album Ảnh Cá Nhân</title>
+  <style>
+    :root {
+      --main-bg: linear-gradient(135deg, #fce4ec, #f30ccc);
+      --header-bg: #ec407a;
+      --accent-color: #ff80ab;
+    }
+
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: var(--main-bg);
+      margin: 0;
+      padding: 0;
+      overflow-x: hidden;
+    }
+    header {
+      text-align: center;
+      padding: 1rem;
+      background: var(--header-bg);
+      color: white;
+      font-size: 1.8rem;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.2);
+    }
+    #upload {
+      text-align: center;
+      margin: 1rem;
+    }
+    #gallery {
+      position: relative;
+      width: 100%;
+      height: 100vh;
+    }
+    .photo {
+      position: absolute;
+      border: 5px solid transparent;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      border-radius: 12px;
+      background: white;
+      padding: 0.5rem;
+      touch-action: none;
+      transition: transform 0.2s;
+    }
+    .photo:hover {
+      transform: scale(1.02);
+    }
+    .photo img {
+      max-width: 200px;
+      max-height: 200px;
+      display: block;
+      border-radius: 8px;
+    }
+    .photo textarea {
+      width: 100%;
+      resize: none;
+      margin-top: 0.3rem;
+      border-radius: 8px;
+      padding: 0.3rem;
+      border: 1px solid #ccc;
+      font-size: 0.9rem;
+    }
+    .controls {
+      display: flex;
+      gap: 0.5rem;
+      margin-top: 0.3rem;
+      align-items: center;
+    }
+    .controls select, .controls input[type="range"], .controls button {
+      font-size: 0.8rem;
+      padding: 0.2rem 0.4rem;
+      border-radius: 6px;
+      border: 1px solid #ccc;
+    }
+    .controls button {
+      background: var(--accent-color);
+      color: white;
+      border: none;
+      cursor: pointer;
+    }
+    .controls button:hover {
+      background: #f50057;
+    }
+  </style>
+</head>
+<body>
+  <header>Album Ảnh Cá Nhân</header>
+  <div id="upload">
+    <input type="file" accept="image/*" id="fileInput" />
+  </div>
+  <div id="gallery"></div>
+
+  <script>
+    const gallery = document.getElementById('gallery');
+    const fileInput = document.getElementById('fileInput');
+
+    const loadImages = () => {
+      const saved = localStorage.getItem('photos');
+      if (saved) {
+        const photos = JSON.parse(saved);
+        photos.forEach(createPhotoElement);
+      }
+    };
+
+    const saveImages = () => {
+      const photoElements = document.querySelectorAll('.photo');
+      const photos = Array.from(photoElements).map(el => {
+        return {
+          src: el.querySelector('img').src,
+          caption: el.querySelector('textarea').value,
+          x: el.style.left,
+          y: el.style.top,
+          size: el.querySelector('img').style.width,
+          frame: el.dataset.frame || 'none'
+        };
+      });
+      localStorage.setItem('photos', JSON.stringify(photos));
+    };
+
+    const createPhotoElement = (data) => {
+      const container = document.createElement('div');
+      container.className = 'photo';
+      container.style.left = data.x || '50px';
+      container.style.top = data.y || '50px';
+      container.dataset.frame = data.frame || 'none';
+
+      const img = document.createElement('img');
+      img.src = data.src;
+      img.style.width = data.size || '200px';
+
+      const caption = document.createElement('textarea');
+      caption.placeholder = 'Nhập chú thích...';
+      caption.value = data.caption || '';
+
+      const controls = document.createElement('div');
+      controls.className = 'controls';
+
+      const sizeControl = document.createElement('input');
+      sizeControl.type = 'range';
+      sizeControl.min = 50;
+      sizeControl.max = 400;
+      sizeControl.value = parseInt(img.style.width);
+      sizeControl.addEventListener('input', () => {
+        img.style.width = sizeControl.value + 'px';
+        saveImages();
+      });
+
+      const frameSelect = document.createElement('select');
+      ['none', 'red', 'blue', 'green', 'pink', 'orange'].forEach(color => {
+        const opt = document.createElement('option');
+        opt.value = color;
+        opt.text = color;
+        frameSelect.appendChild(opt);
+      });
+      frameSelect.value = data.frame || 'none';
+      frameSelect.addEventListener('change', () => {
+        container.style.borderColor = frameSelect.value === 'none' ? 'transparent' : frameSelect.value;
+        container.dataset.frame = frameSelect.value;
+        saveImages();
+      });
+      container.style.borderColor = frameSelect.value === 'none' ? 'transparent' : frameSelect.value;
+
+      const deleteBtn = document.createElement('button');
+      deleteBtn.textContent = 'Xóa';
+      deleteBtn.addEventListener('click', () => {
+        container.remove();
+        saveImages();
+      });
+
+      controls.appendChild(sizeControl);
+      controls.appendChild(frameSelect);
+      controls.appendChild(deleteBtn);
+
+      container.appendChild(img);
+      container.appendChild(caption);
+      container.appendChild(controls);
+
+      enableDrag(container);
+
+      gallery.appendChild(container);
+    };
+
+    const enableDrag = (el) => {
+      let offsetX, offsetY;
+      let active = false;
+
+      const startDrag = (e) => {
+        active = true;
+        const rect = el.getBoundingClientRect();
+        offsetX = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left;
+        offsetY = (e.touches ? e.touches[0].clientY : e.clientY) - rect.top;
+      };
+
+      const drag = (e) => {
+        if (!active) return;
+        e.preventDefault();
+        const x = (e.touches ? e.touches[0].clientX : e.clientX) - offsetX;
+        const y = (e.touches ? e.touches[0].clientY : e.clientY) - offsetY;
+        el.style.left = x + 'px';
+        el.style.top = y + 'px';
+      };
+
+      const stopDrag = () => {
+        active = false;
+        saveImages();
+      };
+
+      el.addEventListener('mousedown', startDrag);
+      el.addEventListener('mousemove', drag);
+      el.addEventListener('mouseup', stopDrag);
+      el.addEventListener('mouseleave', stopDrag);
+
+      el.addEventListener('touchstart', startDrag, { passive: false });
+      el.addEventListener('touchmove', drag, { passive: false });
+      el.addEventListener('touchend', stopDrag);
+    };
+
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        createPhotoElement({ src: evt.target.result });
+        saveImages();
+      };
+      if (file) reader.readAsDataURL(file);
+    });
+
+    loadImages();
+  </script>
+</body>
+</html>
